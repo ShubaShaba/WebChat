@@ -1,0 +1,19 @@
+* {
+	font-family: monospace;
+	/* background-color: #222; */
+}
+
+p {
+	color: wheat;
+}
+
+div {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-around;
+	align-items: center;
+}
+
+.writeSection {
+	display: inline;
+}
