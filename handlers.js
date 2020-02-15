@@ -4,7 +4,7 @@ handlers.notFound = function(data, callback) {
 	callback(404);
 };
 
-handlers.getData = function(data, callback) {
+handlers.getPage = function(data, callback) {
 	callback(200);
 };
 
@@ -13,6 +13,10 @@ handlers.addMessage = function(data, callback) {
 };
 
 handlers.update = function(data, callback) {
+	callback(200);
+};
+
+handlers.realtimeUpdate = function(data, callback) {
 	callback(200);
 };
 

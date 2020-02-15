@@ -1,29 +1,20 @@
 const http = require("http");
 const url = require("url");
 const { Buffer } = require("buffer");
+const path = require("path");
 
 const webpage = require("./dataToHost");
 const handlers = require("./handlers");
 const chatListener = require("./chatListener");
-const pollingServer = require("./pollingServer");
-const animation = require("./loadingAnimation.js");
 
-function checkRequestHTML(path) {
-	if (path.slice(path.length - 5, path.length) === ".html") return true;
-	else return false;
-}
-function checkRequestCSS(path) {
-	if (path.slice(path.length - 4, path.length) === ".css") return true;
-	else return false;
-}
-function checkRequestJS(path) {
-	if (path.slice(path.length - 3, path.length) === ".js") return true;
-	else return false;
-}
+const animation = require("./loadingAnimation.js");
 
 let host = http.createServer((req, res) => {
 	let URL = url.parse(req.url, true);
 	let trimmedPath = URL.pathname.replace(/^\/+|\/+$/g, "");
+
+	let dirname = path.dirname(trimmedPath);
+	let basename = path.basename(trimmedPath);
 
 	let buffer = [];
 
@@ -32,8 +23,8 @@ let host = http.createServer((req, res) => {
 	});
 
 	req.on("end", () => {
-		let chosenHandler = handlers[trimmedPath.slice(0, 7)]
-			? handlers[trimmedPath.slice(0, 7)]
+		let chosenHandler = handlers[dirname]
+			? handlers[dirname]
 			: handlers.notFound;
 
 		buffer = Buffer.concat(buffer);
@@ -43,17 +34,16 @@ let host = http.createServer((req, res) => {
 			res.statusCode = statusCode;
 
 			if (statusCode === 200) {
-				if (checkRequestHTML(trimmedPath)) {
+				if (path.extname(trimmedPath) === ".html") {
 					res.setHeader("Content-Type", "text/html");
-				} else if (checkRequestCSS(trimmedPath)) {
+				} else if (path.extname(trimmedPath) === ".css") {
 					res.setHeader("Content-Type", "text/css");
-				} else if (checkRequestJS(trimmedPath)) {
+				} else if (path.extname(trimmedPath) === ".js") {
 					res.setHeader("Content-Type", "text/javascript");
 				}
 
-				if (webpage[trimmedPath.slice(8)]) {
-					// directory name
-					res.write(webpage[trimmedPath.slice(8)]);
+				if (webpage[basename]) {
+					res.write(webpage[basename]);
 					res.end();
 				} else {
 					res.end("Error in filename");
@@ -65,15 +55,21 @@ let host = http.createServer((req, res) => {
 	});
 });
 
-host.listen(5000, () => {
+host.listen(5000, "192.168.1.146", () => {
 	console.log("Server 5000 is listening");
 });
 
-chatListener.listen(8080, () => {
+chatListener.realtimeConnectionTCPsocket.listen(8080, "192.168.1.146");
+
+chatListener.realtimeConnectionTCPsocket.on("connection", socket => {
+	chatListener.onConnectionFunc(socket);
+});
+
+chatListener.realtimeConnectionTCPsocket.on("listening", () => {
 	console.log("Server 8080 is listening");
 });
 
-// pollingServer.listen(3000, () => {
-// 	console.log("Server 3000 is listening");
-// 	animation();
-// });
+chatListener.severRealtimeResponse.listen(8081, "192.168.1.146", () => {
+	console.log("Server 8081 is listening");
+	animation();
+});
