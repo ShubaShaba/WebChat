@@ -28,7 +28,11 @@ function polling() {
 
 		polling();
 	};
-	xhr.open("GET", `http://localhost:3000/update?chat=${chat}`, true);
+	xhr.open(
+		"GET",
+		`http://192.168.1.146:8081/realtimeUpdate?chat=${chat}`,
+		true,
+	);
 	xhr.send();
 
 	xhr.addEventListener("error", e => {
@@ -43,7 +47,7 @@ function sendMessage() {
 	if (value) {
 		xhr.open(
 			"GET",
-			`http://localhost:8080/addMessage?message=${value}&from=${user}&chat=${chat}`,
+			`http://192.168.1.146:8080/addMessage?message=${value}&from=${user}&chat=${chat}`,
 			true,
 		);
 		xhr.send();

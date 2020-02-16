@@ -3,7 +3,9 @@ const net = require("net");
 const url = require("url");
 const { Buffer } = require("buffer");
 const EventEmitter = require("events");
+const path = require("path");
 const fs = require("fs");
+const QS = require("querystring");
 
 const handlers = require("./handlers");
 
@@ -27,14 +29,16 @@ class Listener extends EventEmitter {
 }
 
 function addKey(path, filename) {
+	let fileData;
+
 	if (fs.existsSync(filename)) {
-		data = JSON.parse(fs.readFileSync(filename));
+		fileData = JSON.parse(fs.readFileSync(filename));
 	} else {
-		data = {};
-		fs.writeFileSync(filename, JSON.stringify(data));
+		fileData = {};
+		fs.writeFileSync(filename, JSON.stringify(FData));
 	}
 
-	let currentData = data;
+	let currentData = fileData;
 
 	path.forEach((key, i, a) => {
 		if (!(key in currentData) && !(i === a.length - 1)) {
@@ -48,7 +52,7 @@ function addKey(path, filename) {
 		}
 	});
 
-	fs.writeFileSync(filename, JSON.stringify(data));
+	fs.writeFileSync(filename, JSON.stringify(fileData));
 }
 
 let connectedClients = new Set();
@@ -64,38 +68,44 @@ function onConnectionFunc(socket) {
 	connectedClients.add(socket);
 
 	socket.on("data", data => {
-		connectedClients.forEach(otherSocket => {
-			let otherAddress = otherSocket.address();
-			let otherAddressStr = `${otherAddress.address}:${otherAddress.port}`;
+		let dirname = data
+			.toString("utf8")
+			.split(" ")[1]
+			.split("?")[0];
 
-			let messageObj = QS.parse(
-				data
-					.toString("utf8")
-					.split(" ")[1]
-					.split("?")[1],
-			);
-			// add addMessage handler
-			if (messageObj) {
-				messages.add({
-					client: otherAddressStr,
-					m: messageObj,
-				});
+		let chosenHandler = handlers[dirname.slice(1)]
+			? handlers[dirname.slice(1)]
+			: handlers.notFound;
 
-				let chatType = messageObj.chatType;
-				let pathname = `./database/${messageObj.chat}`;
+		let messageObj = QS.parse(
+			data
+				.toString("utf8")
+				.split(" ")[1]
+				.split("?")[1],
+		);
+		chosenHandler(messageObj, statusCode => {
+			if (statusCode === 200) {
+				if (messageObj) {
+					messages.add({
+						client: addressStr,
+						m: messageObj,
+					});
 
-				let fileData;
+					let chatType = messageObj.chatType;
+					let pathname = `./database/${messageObj.chat}`;
 
-				if (chatType === "group") {
+					// if (chatType === "group") {
 					addKey(["messages"], pathname);
+
+					let fileData = JSON.parse(fs.readFileSync(pathname));
 
 					fileData.messages.push(messageObj);
 
 					fs.writeFileSync(pathname, JSON.stringify(fileData));
+					// }
 				}
 			}
-
-			otherSocket.end();
+			socket.end();
 		});
 	});
 
@@ -119,17 +129,23 @@ let severRealtimeResponse = http.createServer((req, res) => {
 	});
 
 	req.on("end", function() {
+		let chosenHandler = handlers[trimmedPath]
+			? handlers[trimmedPath]
+			: handlers.notFound;
+
 		buffer = Buffer.concat(buffer);
 		let string = buffer.toString("utf8");
 
-		let statusCode = 200; //add realtimeUpdate handler
+		chosenHandler(string, statusCode => {
+			if (statusCode === 200) {
+				res.setHeader("Content-Type", "application/json");
+				res.setHeader("Access-Control-Allow-Origin", "*");
+				res.writeHead(statusCode);
 
-		res.setHeader("Content-Type", "application/json");
-		res.setHeader("Access-Control-Allow-Origin", "*");
-		res.writeHead(statusCode);
-
-		messages.on("update", m => {
-			res.end(JSON.stringify(m));
+				messages.on("update", m => {
+					res.end(JSON.stringify(m));
+				});
+			}
 		});
 	});
 });
@@ -139,50 +155,3 @@ module.exports = {
 	onConnectionFunc,
 	severRealtimeResponse,
 };
-
-// let chatListenerHTTPServerToEditDB = http.createServer((req, res) => {
-// 	let URL = url.parse(req.url, true);
-// 	let trimmedPath = URL.pathname.replace(/^\/+|\/+$/g, "");
-
-// 	let buffer = [];
-
-// 	req.on("data", chunk => {
-// 		buffer.push(data);
-// 	});
-
-// 	req.on("end", function() {
-// 		let chosenHandler = handlers[trimmedPath]
-// 			? handlers[trimmedPath]
-// 			: handlers.notFound;
-
-// 		buffer = Buffer.concat(buffer);
-
-// 		let message = URL.query;
-// 		let from = message.from;
-// 		let chatType = message.chatType;
-// 		let pathname = `./database/${message.chat}`;
-
-// 		chosenHandler(message, statusCode => {
-// 			res.setHeader("Content-Type", "application/json");
-// 			res.setHeader("Access-Control-Allow-Origin", "*");
-// 			res.writeHead(statusCode);
-
-// 			if (statusCode === 200) {
-// 				if (message) {
-// 					let data;
-
-// 					if (chatType === "group") {
-// 						addKey(["messages"], pathname);
-
-// 						data.messages.push(message);
-
-// 						fs.writeFileSync(pathname, JSON.stringify(data));
-// 					}
-// 				}
-// 				res.end();
-// 			} else {
-// 				res.end("Error: " + statusCode);
-// 			}
-// 		});
-// 	});
-// });
