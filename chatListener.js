@@ -35,7 +35,7 @@ function addKey(path, filename) {
 		fileData = JSON.parse(fs.readFileSync(filename));
 	} else {
 		fileData = {};
-		fs.writeFileSync(filename, JSON.stringify(FData));
+		fs.writeFileSync(filename, JSON.stringify(fileData));
 	}
 
 	let currentData = fileData;
@@ -84,6 +84,14 @@ function onConnectionFunc(socket) {
 				.split("?")[1],
 		);
 		chosenHandler(messageObj, statusCode => {
+			let httpResponse = [];
+
+			httpResponse.push(Buffer.from(`HTTP/1.1 ${statusCode} OK\r\n`));
+			httpResponse.push(Buffer.from("Access-Control-Allow-Origin: *\r\n"));
+			httpResponse.push(Buffer.from("Content-Type: application/json\r\n"));
+			httpResponse.push(Buffer.from("Connection: close\r\n"));
+			httpResponse.push(Buffer.from("\r\n"));
+
 			if (statusCode === 200) {
 				if (messageObj) {
 					messages.add({
@@ -103,8 +111,16 @@ function onConnectionFunc(socket) {
 
 					fs.writeFileSync(pathname, JSON.stringify(fileData));
 					// }
+					httpResponse.push(
+						Buffer.from("Broadcasting has been successful\r\n"),
+					);
+				} else {
+					httpResponse.push(Buffer.from("There is no message\r\n"));
 				}
+			} else {
+				httpResponse.push(Buffer.from("Broadcasting has failed\r\n"));
 			}
+			socket.write(Buffer.concat(httpResponse));
 			socket.end();
 		});
 	});
